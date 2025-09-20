@@ -336,9 +336,10 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
     final bool isLandscape = screenSize.width > screenSize.height;
     final double base = isTablet ? 160 : 120;
     final double landscapeAdj = isLandscape ? (isTablet ? -20 : -20) : 0;
-    final double dynamicBySide = screenSize.shortestSide * (isTablet ? 0.20 : 0.18);
-    final double size = base + landscapeAdj;
-    return size.clamp(90, isTablet ? 200 : 150).toDouble().clamp(90, 220).toDouble().clamp(90, 220);
+    final double dynamicBySide = screenSize.shortestSide * (isTablet ? 0.06 : 0.05);
+    double size = base + landscapeAdj + dynamicBySide;
+    final double maxSize = isTablet ? 220.0 : 170.0;
+    return size.clamp(90.0, maxSize);
   }
 
   Color _accentColorFor(FrameStyle style) {

@@ -121,7 +121,7 @@ class _AnimatedBubblesLayerState extends State<AnimatedBubblesLayer> with Ticker
               ],
             ),
             transform: bubble.isActive 
-                ? (Matrix4.identity()..scale(1.1))
+                ? Matrix4.diagonal3Values(1.1, 1.1, 1.0)
                 : Matrix4.identity(),
             child: Center(
               child: Text(
