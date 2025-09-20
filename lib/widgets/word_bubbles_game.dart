@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:math';
@@ -9,6 +9,7 @@ import 'dart:convert';
 import '../models/word_models.dart';
 import '../data/teachable_words_data.dart';
 import 'animated_bubbles_layer.dart';
+import 'decorative_frame.dart';
 
 class WordBubblesGame extends StatefulWidget {
   const WordBubblesGame({super.key});
@@ -29,8 +30,14 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
   final Random random = Random();
   
   static const int maxObjectsOnScreen = 3;
-  static const double bubbleSize = 120.0;
   static const double animationSpeed = 2.0;
+  final List<FrameStyle> _frameStyles = const [
+    FrameStyle.candy,
+    FrameStyle.ocean,
+    FrameStyle.forest,
+    FrameStyle.galaxy,
+  ];
+  int _frameStyleIndex = 0;
   
   // Add logging for image loading
   int imageLoadCount = 0;
@@ -57,7 +64,8 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
   void _initializeTts() async {
     flutterTts = FlutterTts();
     await flutterTts.setLanguage("en-US");
-    await flutterTts.setSpeechRate(Platform.isAndroid ? 0.5 : 2.0);
+    final bool isAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    await flutterTts.setSpeechRate(isAndroid ? 0.5 : 1.0);
     await flutterTts.setPitch(1.0);
     await flutterTts.setVolume(1.0);
   }
@@ -100,6 +108,7 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
         _currentImagePath = newPath;
         currentBackgroundImage = newPath;
         _isLoadingImage = false;
+        _advanceFrameStyle();
       });
     }
   }
@@ -126,8 +135,9 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
 
   WordBubble _createWordBubble(TeachableWord word) {
     final screenSize = MediaQuery.of(context).size;
-    final maxX = (screenSize.width - bubbleSize).clamp(bubbleSize, double.infinity);
-    final maxY = (screenSize.height - bubbleSize - 100).clamp(bubbleSize, double.infinity);
+    final double currentBubbleSize = _currentBubbleSize(screenSize);
+    final maxX = (screenSize.width - currentBubbleSize).clamp(currentBubbleSize, double.infinity);
+    final maxY = (screenSize.height - currentBubbleSize - 100).clamp(currentBubbleSize, double.infinity);
     
     return WordBubble(
       word: word,
@@ -200,6 +210,8 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final double currentBubbleSize = _currentBubbleSize(size);
+    final FrameStyle currentFrameStyle = _frameStyles[_frameStyleIndex % _frameStyles.length];
     return Scaffold(
       body: Container(
         width: size.width,
@@ -212,24 +224,11 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
           ),
         ),
         child: SafeArea(
-          child: Container(
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 25,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
+          child: DecorativeFrame(
+            style: currentFrameStyle,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
                   // Static Background Image (not rebuilt on animation)
                   if (_currentImagePath != null)
                     Positioned.fill(
@@ -259,7 +258,8 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
                   AnimatedBubblesLayer(
                     bubbles: bubbles,
                     onBubbleTap: _speakWord,
-                    bubbleSize: bubbleSize,
+                    bubbleSize: currentBubbleSize,
+                    accentColor: _accentColorFor(currentFrameStyle),
                   ),
                   
                   // Title
@@ -319,12 +319,38 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
                       ),
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  void _advanceFrameStyle() {
+    _frameStyleIndex = (_frameStyleIndex + 1) % _frameStyles.length;
+  }
+
+  double _currentBubbleSize(Size screenSize) {
+    final bool isTablet = screenSize.shortestSide >= 600;
+    final bool isLandscape = screenSize.width > screenSize.height;
+    final double base = isTablet ? 160 : 120;
+    final double landscapeAdj = isLandscape ? (isTablet ? -20 : -20) : 0;
+    final double dynamicBySide = screenSize.shortestSide * (isTablet ? 0.20 : 0.18);
+    final double size = base + landscapeAdj;
+    return size.clamp(90, isTablet ? 200 : 150).toDouble().clamp(90, 220).toDouble().clamp(90, 220);
+  }
+
+  Color _accentColorFor(FrameStyle style) {
+    switch (style) {
+      case FrameStyle.candy:
+        return const Color(0xFFFF8A65);
+      case FrameStyle.ocean:
+        return const Color(0xFF29B6F6);
+      case FrameStyle.forest:
+        return const Color(0xFF66BB6A);
+      case FrameStyle.galaxy:
+        return const Color(0xFF7E57C2);
+    }
   }
 }

@@ -5,12 +5,14 @@ class AnimatedBubblesLayer extends StatefulWidget {
   final List<WordBubble> bubbles;
   final Function(WordBubble) onBubbleTap;
   final double bubbleSize;
+  final Color? accentColor;
 
   const AnimatedBubblesLayer({
     super.key,
     required this.bubbles,
     required this.onBubbleTap,
     required this.bubbleSize,
+    this.accentColor,
   });
 
   @override
@@ -100,21 +102,21 @@ class _AnimatedBubblesLayerState extends State<AnimatedBubblesLayer> with Ticker
             decoration: BoxDecoration(
               color: bubble.isActive 
                   ? Colors.white 
-                  : Colors.white.withValues(alpha: 0.92),
+                  : Colors.white.withValues(alpha: 0.94),
               border: Border.all(
                 color: bubble.isActive 
-                    ? const Color(0xFFFFA500) 
-                    : const Color(0xFFFF6347),
+                    ? (widget.accentColor ?? const Color(0xFFFFA500)) 
+                    : (widget.accentColor?.withValues(alpha: 0.8) ?? const Color(0xFFFF6347)),
                 width: 3,
               ),
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
                   color: bubble.isActive 
-                      ? const Color(0xFFFFD700).withValues(alpha: 0.6)
-                      : Colors.black.withValues(alpha: 0.25),
-                  blurRadius: bubble.isActive ? 15 : 8,
-                  offset: const Offset(3, 3),
+                      ? (widget.accentColor ?? const Color(0xFFFFD700)).withValues(alpha: 0.5)
+                      : Colors.black.withValues(alpha: 0.20),
+                  blurRadius: bubble.isActive ? 18 : 10,
+                  offset: const Offset(2, 4),
                 ),
               ],
             ),
@@ -124,7 +126,7 @@ class _AnimatedBubblesLayerState extends State<AnimatedBubblesLayer> with Ticker
             child: Center(
               child: Text(
                 bubble.word.iconUrl,
-                style: const TextStyle(fontSize: 48),
+                style: TextStyle(fontSize: (widget.bubbleSize * 0.40).clamp(28, 56).toDouble()),
                 textAlign: TextAlign.center,
               ),
             ),
