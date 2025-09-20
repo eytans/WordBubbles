@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'dart:math';
 import 'dart:async';
 import 'dart:convert';
@@ -19,6 +20,10 @@ class WordBubblesGame extends StatefulWidget {
 
 class _WordBubblesGameState extends State<WordBubblesGame> {
   late FlutterTts flutterTts;
+  late AudioPlayer _bgmPlayer;
+  double _bgmVolume = 0.7;
+  final double _duckedVolume = 0.2;
+  bool _isDucked = false;
   
   List<WordBubble> bubbles = [];
   String? currentBackgroundImage;
@@ -43,6 +48,7 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
   void initState() {
     super.initState();
     _initializeTts();
+    _initializeBgm();
     _loadImageIds();
   }
 
@@ -60,6 +66,46 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
     await flutterTts.setSpeechRate(Platform.isAndroid ? 0.5 : 2.0);
     await flutterTts.setPitch(1.0);
     await flutterTts.setVolume(1.0);
+    // Ensure speak() awaits completion so we can restore music volume precisely
+    await flutterTts.awaitSpeakCompletion(true);
+  }
+
+  Future<void> _initializeBgm() async {
+    _bgmPlayer = AudioPlayer();
+    await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+    await _bgmPlayer.setVolume(_bgmVolume);
+
+    const String assetPath = 'assets/audio/bgm.mp3';
+    try {
+      // Check if asset exists. If it does, play it.
+      await rootBundle.load(assetPath);
+      await _bgmPlayer.play(const AssetSource('audio/bgm.mp3'));
+    } catch (_) {
+      // Fallback to a demo URL if no asset is present. Replace with your own track.
+      // Note: Ensure this URL is HTTPS and permitted by platform policies.
+      const String fallbackUrl = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+      try {
+        await _bgmPlayer.play(UrlSource(fallbackUrl));
+      } catch (e) {
+        // If even the URL fails, silently ignore to avoid crashing the game.
+      }
+    }
+  }
+
+  Future<void> _duckBackgroundMusic() async {
+    if (_isDucked) return;
+    _isDucked = true;
+    try {
+      await _bgmPlayer.setVolume(_duckedVolume);
+    } catch (_) {}
+  }
+
+  Future<void> _restoreBackgroundMusic() async {
+    if (!_isDucked) return;
+    _isDucked = false;
+    try {
+      await _bgmPlayer.setVolume(_bgmVolume);
+    } catch (_) {}
   }
 
   void _initializeGame() {
@@ -151,13 +197,12 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
     wordsClickedCount++;
 
     try {
+      await _duckBackgroundMusic();
       await flutterTts.speak(bubble.word.word);
-      
-      // Wait a bit for speech to complete
-      await Future.delayed(const Duration(milliseconds: 2000));
-      
+      await _restoreBackgroundMusic();
       _handleWordCleanup(bubble);
     } catch (e) {
+      await _restoreBackgroundMusic();
       _handleWordCleanup(bubble);
     }
   }
@@ -194,6 +239,11 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
   @override
   void dispose() {
     flutterTts.stop();
+    // Stop and release background music player
+    try {
+      _bgmPlayer.stop();
+      _bgmPlayer.dispose();
+    } catch (_) {}
     super.dispose();
   }
 
