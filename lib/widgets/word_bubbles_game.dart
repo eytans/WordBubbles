@@ -26,7 +26,6 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
   bool _isDucked = false;
   
   List<WordBubble> bubbles = [];
-  String? currentBackgroundImage;
   List<int>? _imageIds;
   int wordsClickedCount = 0;
   int setsCompletedCount = 0;
@@ -37,8 +36,7 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
   static const double bubbleSize = 120.0;
   static const double animationSpeed = 2.0;
   
-  // Add logging for image loading
-  int imageLoadCount = 0;
+  // Add logging for image loading (visible in debug overlay)
   List<String> imageLoadLog = [];
 
   String? _currentImagePath;
@@ -144,7 +142,6 @@ class _WordBubblesGameState extends State<WordBubblesGame> {
     if (mounted) {
       setState(() {
         _currentImagePath = newPath;
-        currentBackgroundImage = newPath;
         _isLoadingImage = false;
       });
     }
