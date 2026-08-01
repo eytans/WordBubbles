@@ -482,6 +482,7 @@ class _WordBubblesGameState extends State<WordBubblesGame>
                       ),
                       child: PopupMenuButton<BubbleVisualMode>(
                         initialValue: _visualMode,
+                        offset: const Offset(140, 0),
                         tooltip: 'Choose bubble visuals',
                         icon: Icon(
                           _visualMode == BubbleVisualMode.photos

@@ -205,13 +205,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 2500));
     
-    // Verify one bubble was clicked and removed from active bubbles
-    final remainingBubbles = gameState.bubbles.where((b) => !b.isClicked).length;
-    expect(remainingBubbles, equals(2));
-    
-    // Verify the clicked bubble is marked as clicked and active
+    // Verify the clicked bubble is marked as clicked and active. The game may
+    // already have repopulated the next round after the speech completes, so
+    // asserting a fixed list length here would race the refill timer.
     expect(firstBubble.isClicked, isTrue);
     expect(firstBubble.isActive, isTrue);
+    expect(gameState.wordsClickedCount, equals(1));
     
     print('Game progression test completed successfully!');
   });
