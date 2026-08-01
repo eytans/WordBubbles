@@ -165,25 +165,13 @@ class _WordBubblesGameState extends State<WordBubblesGame>
   }
 
   Future<void> _chooseVisualMode() async {
-    final selectedMode = await showModalBottomSheet<BubbleVisualMode>(
+    final selectedMode = await showDialog<BubbleVisualMode>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
+      builder: (context) => AlertDialog(
+        title: const Text('Bubble visuals'),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(24, 20, 24, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Bubble visuals',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
             ListTile(
               leading: const Icon(Icons.emoji_emotions),
               title: const Text('Emoji bubbles'),
@@ -200,7 +188,6 @@ class _WordBubblesGameState extends State<WordBubblesGame>
                   : null,
               onTap: () => Navigator.of(context).pop(BubbleVisualMode.photos),
             ),
-            const SizedBox(height: 8),
           ],
         ),
       ),
