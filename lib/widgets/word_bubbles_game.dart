@@ -164,6 +164,57 @@ class _WordBubblesGameState extends State<WordBubblesGame>
     unawaited(_applyMusicVolume());
   }
 
+  Future<void> _chooseVisualMode() async {
+    final selectedMode = await showModalBottomSheet<BubbleVisualMode>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(24, 20, 24, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Bubble visuals',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.emoji_emotions),
+              title: const Text('Emoji bubbles'),
+              trailing: _visualMode == BubbleVisualMode.emoji
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => Navigator.of(context).pop(BubbleVisualMode.emoji),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Photo cards'),
+              trailing: _visualMode == BubbleVisualMode.photos
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => Navigator.of(context).pop(BubbleVisualMode.photos),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || selectedMode == null || selectedMode == _visualMode) {
+      return;
+    }
+
+    setState(() {
+      _visualMode = selectedMode;
+    });
+  }
+
   Future<void> _setTtsSpeaking(bool speaking) async {
     _isTtsSpeaking = speaking;
     if (!_musicStarted) return;
@@ -287,9 +338,6 @@ class _WordBubblesGameState extends State<WordBubblesGame>
   }
 
   Future<void> _speakWord(WordBubble bubble) async {
-    if (bubble.isClicked) return;
-
-    await Future.wait([_ttsInitialization, _audioInitialization]);
     if (!mounted || bubble.isClicked) return;
 
     setState(() {
@@ -300,6 +348,11 @@ class _WordBubblesGameState extends State<WordBubblesGame>
     });
 
     wordsClickedCount++;
+
+    // Mark the bubble immediately so a slow first-time audio/TTS setup does
+    // not make a tap feel unresponsive.
+    await Future.wait([_ttsInitialization, _audioInitialization]);
+    if (!mounted) return;
 
     try {
       await _setTtsSpeaking(true);
@@ -480,31 +533,15 @@ class _WordBubblesGameState extends State<WordBubblesGame>
                         color: Colors.black.withValues(alpha: 0.45),
                         borderRadius: BorderRadius.circular(22),
                       ),
-                      child: PopupMenuButton<BubbleVisualMode>(
-                        initialValue: _visualMode,
-                        offset: const Offset(140, 0),
+                      child: IconButton(
                         tooltip: 'Choose bubble visuals',
+                        onPressed: _chooseVisualMode,
                         icon: Icon(
                           _visualMode == BubbleVisualMode.photos
                               ? Icons.photo_library
                               : Icons.emoji_emotions,
                           color: Colors.white,
                         ),
-                        onSelected: (mode) {
-                          setState(() {
-                            _visualMode = mode;
-                          });
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: BubbleVisualMode.emoji,
-                            child: Text('Emoji bubbles'),
-                          ),
-                          const PopupMenuItem(
-                            value: BubbleVisualMode.photos,
-                            child: Text('Photo cards'),
-                          ),
-                        ],
                       ),
                     ),
                   ),
