@@ -4,10 +4,14 @@ A Flutter educational game app that helps children learn words through interacti
 
 ## Features
 
-- **Animated Word Bubbles**: Interactive emoji-based word bubbles that bounce around the screen
+- **Animated Word Bubbles**: Interactive bubbles that bounce around the screen
+- **Visual Modes**: Choose emoji bubbles or photo-style cards; words without a card safely fall back to emoji
 - **Text-to-Speech**: Click on any bubble to hear the word pronounced
-- **Random Background Images**: Beautiful background images from Picsum Photos
+- **Random Background Images**: Beautiful packaged backgrounds that work offline
 - **Progressive Learning**: New words are added as you complete sets
+- **Background Music**: Optional local loop with mute, volume, lifecycle pause, and TTS ducking
+- **Themed Frames**: The play frame changes theme as new backgrounds unlock
+- **Visible Progress**: Shows set progress and bubbles found in the current set
 - **100+ Educational Words**: Covering categories like animals, food, vehicles, emotions, shapes, and more
 - **Cross-Platform**: Runs on Android and Web
 
@@ -20,13 +24,17 @@ This Flutter app is a rewrite of the original JavaScript/HTML WordBubbles game, 
 1. Watch the animated word bubbles bounce around the screen
 2. Tap on any bubble to hear the word spoken aloud
 3. Complete sets of words to unlock new backgrounds and vocabulary
-4. Learn through play with over 100 different words!
+4. Use the lower-left visual button to choose Emoji bubbles or Photo cards.
+5. Adjust or mute background music from the lower-right control.
+6. Learn through play with over 100 different words!
 
 ## Technical Features
 
 - **Flutter Framework**: Built with Flutter for cross-platform compatibility
 - **Text-to-Speech**: Uses `flutter_tts` package for speech synthesis
-- **Cached Images**: Efficient image loading with `cached_network_image`
+- **Local Images**: Packaged backgrounds keep the game usable offline
+- **Photo Cards**: A small bundled AI-generated visual pack is available as an optional mode
+- **Local Music**: Place the bundled track at `assets/audio/bgm.mp3`
 - **Smooth Animations**: 60fps animations with proper collision detection
 - **Responsive Design**: Adapts to different screen sizes
 
@@ -66,7 +74,7 @@ This Flutter app is a rewrite of the original JavaScript/HTML WordBubbles game, 
 ## Dependencies
 
 - `flutter_tts: ^4.2.0` - Text-to-speech functionality
-- `cached_network_image: ^3.4.1` - Efficient image caching
+- `audioplayers: ^6.1.0` - Local background music playback
 - `http: ^1.2.2` - HTTP requests for image loading
 
 ## Educational Content

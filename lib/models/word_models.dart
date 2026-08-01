@@ -2,11 +2,13 @@ class TeachableWord {
   final String word;
   final String type;
   final String iconUrl;
+  final String? photoAssetPath;
 
   TeachableWord({
     required this.word,
     required this.type,
     required this.iconUrl,
+    this.photoAssetPath,
   });
 }
 

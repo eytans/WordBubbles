@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:wordbubbles/main.dart';
 import 'package:wordbubbles/models/word_models.dart';
 import 'package:wordbubbles/widgets/word_bubbles_game.dart';
+import 'package:wordbubbles/widgets/animated_bubbles_layer.dart';
 import 'package:wordbubbles/data/teachable_words_data.dart';
 
 void main() {
@@ -17,10 +20,32 @@ void main() {
 
     // Verify that our app loads with the title.
     expect(find.text('WordBubbles: Learn & Play'), findsOneWidget);
+    expect(find.byIcon(Icons.music_note), findsOneWidget);
+    expect(find.byIcon(Icons.emoji_emotions), findsOneWidget);
+    expect(find.byType(Slider), findsOneWidget);
     
     // Verify that the app structure is correct
     expect(find.byType(MaterialApp), findsOneWidget);
     expect(find.byType(WordBubblesGame), findsOneWidget);
+  });
+
+  testWidgets('visual mode switches between emoji and photo cards', (WidgetTester tester) async {
+    await tester.pumpWidget(const WordBubblesApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byIcon(Icons.emoji_emotions));
+    await tester.pump();
+    expect(find.text('Photo cards'), findsOneWidget);
+
+    await tester.tap(find.text('Photo cards'));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.photo_library), findsOneWidget);
+    final layer = tester.widget<AnimatedBubblesLayer>(
+      find.byType(AnimatedBubblesLayer),
+    );
+    expect(layer.showPhotoCards, isTrue);
   });
   
   testWidgets('WordBubbles app has correct theme', (WidgetTester tester) async {
@@ -220,5 +245,24 @@ void main() {
     }
     
     print('Bubble movement and positioning test completed successfully!');
+  });
+
+  testWidgets('Bubbles stay within the rendered game layer', (WidgetTester tester) async {
+    await tester.pumpWidget(const WordBubblesApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final gameState = tester.state(find.byType(WordBubblesGame)) as dynamic;
+    final layerFinder = find.byType(AnimatedBubblesLayer);
+    final layer = tester.widget<AnimatedBubblesLayer>(layerFinder);
+    final layerSize = tester.getSize(layerFinder);
+    final maxX = math.max(0.0, layerSize.width - layer.bubbleSize);
+    final maxY = math.max(0.0, layerSize.height - layer.bubbleSize);
+    final minY = math.min(layer.topPadding, maxY);
+
+    for (final bubble in gameState.bubbles as List) {
+      expect(bubble.x, inInclusiveRange(0.0, maxX));
+      expect(bubble.y, inInclusiveRange(minY, maxY));
+    }
   });
 }
