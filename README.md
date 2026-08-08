@@ -35,13 +35,13 @@ This Flutter app is a rewrite of the original JavaScript/HTML WordBubbles game, 
 - **Local Images**: Packaged backgrounds keep the game usable offline
 - **Photo Cards**: A small bundled AI-generated visual pack is available as an optional mode
 - **Local Music**: Place the bundled track at `assets/audio/bgm.mp3`
-- **Smooth Animations**: 60fps animations with proper collision detection
+- **Smooth Animations**: 60fps animations with bounded, non-overlapping bubbles
 - **Responsive Design**: Adapts to different screen sizes
 
 ## Android release readiness
 
 - Targets Android 16 (API 36), required for new Google Play app updates from August 31, 2026.
-- Uses version `1.1.0+2` as the next release candidate after the original `v1.0.0` tag.
+- Uses version `1.1.0+4` for the next Play testing release after the original `v1.0.0` tag.
 - The release workflow produces a signed Android App Bundle (`.aab`) for Play Console and an APK for direct testing.
 - GitHub Actions verifies an unsigned debug Android build on every main push; the signed release requires the repository keystore secrets.
 
@@ -82,7 +82,6 @@ This Flutter app is a rewrite of the original JavaScript/HTML WordBubbles game, 
 
 - `flutter_tts: ^4.2.0` - Text-to-speech functionality
 - `audioplayers: ^6.1.0` - Local background music playback
-- `http: ^1.2.2` - HTTP requests for image loading
 
 ## Educational Content
 

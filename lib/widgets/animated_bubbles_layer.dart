@@ -8,6 +8,7 @@ class AnimatedBubblesLayer extends StatefulWidget {
   final Function(WordBubble) onBubbleTap;
   final double bubbleSize;
   final double topPadding;
+  final double bottomPadding;
   final Color accentColor;
   final bool showPhotoCards;
 
@@ -17,6 +18,7 @@ class AnimatedBubblesLayer extends StatefulWidget {
     required this.onBubbleTap,
     required this.bubbleSize,
     this.topPadding = 0,
+    this.bottomPadding = 0,
     this.accentColor = const Color(0xFFFF6347),
     this.showPhotoCards = false,
   });
@@ -49,8 +51,12 @@ class _AnimatedBubblesLayerState extends State<AnimatedBubblesLayer> with Ticker
     final size = context.size;
     if (size == null) return;
 
-    final maxX = math.max(0.0, size.width - widget.bubbleSize);
-    final maxY = math.max(0.0, size.height - widget.bubbleSize);
+    final scaledInset = widget.bubbleSize * 0.05;
+    final maxX = math.max(0.0, size.width - widget.bubbleSize - scaledInset);
+    final maxY = math.max(
+      0.0,
+      size.height - widget.bubbleSize - widget.bottomPadding - scaledInset,
+    );
     final minY = math.min(widget.topPadding, maxY);
 
     bool needsUpdate = false;
@@ -75,8 +81,8 @@ class _AnimatedBubblesLayerState extends State<AnimatedBubblesLayer> with Ticker
         needsUpdate = true;
       }
       
-      if (maxY == 0) {
-        bubble.y = 0;
+      if (maxY <= minY) {
+        bubble.y = minY;
         bubble.dy = 0;
       } else if (newY <= minY || newY >= maxY) {
         bubble.dy *= -1;
@@ -88,9 +94,55 @@ class _AnimatedBubblesLayerState extends State<AnimatedBubblesLayer> with Ticker
       }
     }
 
+    _separateOverlappingBubbles(maxX, maxY, minY);
+
     // Only call setState if positions actually changed
     if (needsUpdate) {
       setState(() {});
+    }
+  }
+
+  void _separateOverlappingBubbles(double maxX, double maxY, double minY) {
+    for (var firstIndex = 0;
+        firstIndex < widget.bubbles.length;
+        firstIndex++) {
+      final first = widget.bubbles[firstIndex];
+      if (first.isClicked) continue;
+
+      for (var secondIndex = firstIndex + 1;
+          secondIndex < widget.bubbles.length;
+          secondIndex++) {
+        final second = widget.bubbles[secondIndex];
+        if (second.isClicked) continue;
+
+        final dx = second.x - first.x;
+        final dy = second.y - first.y;
+        final overlapX = widget.bubbleSize - dx.abs();
+        final overlapY = widget.bubbleSize - dy.abs();
+        if (overlapX <= 0 || overlapY <= 0) continue;
+
+        final horizontal = overlapX < overlapY;
+        if (horizontal) {
+          final direction = dx == 0
+              ? (firstIndex.isEven ? -1.0 : 1.0)
+              : (dx < 0 ? -1.0 : 1.0);
+          final correction = (overlapX / 2) + 1;
+          first.x -= direction * correction;
+          second.x += direction * correction;
+        } else {
+          final direction = dy == 0
+              ? (firstIndex.isEven ? -1.0 : 1.0)
+              : (dy < 0 ? -1.0 : 1.0);
+          final correction = (overlapY / 2) + 1;
+          first.y -= direction * correction;
+          second.y += direction * correction;
+        }
+
+        first.x = first.x.clamp(0.0, maxX).toDouble();
+        second.x = second.x.clamp(0.0, maxX).toDouble();
+        first.y = first.y.clamp(minY, maxY).toDouble();
+        second.y = second.y.clamp(minY, maxY).toDouble();
+      }
     }
   }
 
@@ -105,51 +157,80 @@ class _AnimatedBubblesLayerState extends State<AnimatedBubblesLayer> with Ticker
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxX = math.max(0.0, constraints.maxWidth - widget.bubbleSize);
-        final maxY = math.max(0.0, constraints.maxHeight - widget.bubbleSize);
+        final scaledInset = widget.bubbleSize * 0.05;
+        final maxX = math.max(
+          0.0,
+          constraints.maxWidth - widget.bubbleSize - scaledInset,
+        );
+        final maxY = math.max(
+          0.0,
+          constraints.maxHeight - widget.bubbleSize - widget.bottomPadding - scaledInset,
+        );
         final minY = math.min(widget.topPadding, maxY);
 
         return Stack(
+          fit: StackFit.expand,
+          clipBehavior: Clip.none,
           children: widget.bubbles.map((bubble) => Positioned(
             left: bubble.x.clamp(0.0, maxX).toDouble(),
             top: bubble.y.clamp(minY, maxY).toDouble(),
-            child: Semantics(
-              button: true,
-              label: '${bubble.word.word}. Tap to hear the word.',
-              onTap: () => widget.onBubbleTap(bubble),
-              child: GestureDetector(
-                onTap: () => widget.onBubbleTap(bubble),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.elasticOut,
-                  width: widget.bubbleSize,
-                  height: widget.bubbleSize,
-                  decoration: BoxDecoration(
-                    color: bubble.isActive
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.92),
-                    border: Border.all(
-                      color: bubble.isActive
-                          ? widget.accentColor
-                          : widget.accentColor.withValues(alpha: 0.85),
-                      width: 3,
-                    ),
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: bubble.isActive
-                            ? widget.accentColor.withValues(alpha: 0.6)
-                            : Colors.black.withValues(alpha: 0.25),
-                        blurRadius: bubble.isActive ? 15 : 8,
-                        offset: const Offset(3, 3),
-                      ),
-                    ],
+            child: MergeSemantics(
+              child: FocusableActionDetector(
+                mouseCursor: SystemMouseCursors.click,
+                shortcuts: const <ShortcutActivator, Intent>{
+                  SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+                  SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+                },
+                actions: <Type, Action<Intent>>{
+                  ActivateIntent: CallbackAction<ActivateIntent>(
+                    onInvoke: (_) {
+                      widget.onBubbleTap(bubble);
+                      return null;
+                    },
                   ),
-                  transform: bubble.isActive
-                      ? (Matrix4.identity()..scale(1.1))
-                      : Matrix4.identity(),
-                  child: Center(
-                    child: _buildBubbleVisual(bubble),
+                },
+                child: Semantics(
+                  button: true,
+                  container: true,
+                  label: '${bubble.word.word}. Tap to hear the word.',
+                  onTap: () => widget.onBubbleTap(bubble),
+                  child: GestureDetector(
+                    onTap: () => widget.onBubbleTap(bubble),
+                    child: ExcludeSemantics(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.elasticOut,
+                        width: widget.bubbleSize,
+                        height: widget.bubbleSize,
+                        decoration: BoxDecoration(
+                          color: bubble.isActive
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.92),
+                          border: Border.all(
+                            color: bubble.isActive
+                                ? widget.accentColor
+                                : widget.accentColor.withValues(alpha: 0.85),
+                            width: 3,
+                          ),
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: bubble.isActive
+                                  ? widget.accentColor.withValues(alpha: 0.6)
+                                  : Colors.black.withValues(alpha: 0.25),
+                              blurRadius: bubble.isActive ? 15 : 8,
+                              offset: const Offset(3, 3),
+                            ),
+                          ],
+                        ),
+                        transform: bubble.isActive
+                            ? (Matrix4.identity()..scale(1.1))
+                            : Matrix4.identity(),
+                        child: Center(
+                          child: _buildBubbleVisual(bubble),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

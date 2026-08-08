@@ -45,6 +45,7 @@ class _WordBubblesGameState extends State<WordBubblesGame>
   bool _isTtsSpeaking = false;
   bool _resumeMusicOnForeground = false;
   bool _isDisposing = false;
+  bool _speechFailureAnnounced = false;
   double _musicVolume = 0.35;
   int _frameStyleIndex = 0;
   BubbleVisualMode _visualMode = BubbleVisualMode.emoji;
@@ -53,6 +54,9 @@ class _WordBubblesGameState extends State<WordBubblesGame>
   static const int maxObjectsOnScreen = 3;
   static const double bubbleSize = 120.0;
   static const double animationSpeed = 2.0;
+  static const double topBubblePadding = 100.0;
+  static const double bottomBubblePadding = 72.0;
+  static const double bubbleCollisionGap = 12.0;
   static const String _musicAsset = 'audio/bgm.mp3';
   
   String? _currentImagePath;
@@ -298,11 +302,17 @@ class _WordBubblesGameState extends State<WordBubblesGame>
     }
 
     final wordsToDisplay = _getRandomWords(currentWords, maxObjectsOnScreen);
+    final occupied = <Rect>[];
     
     setState(() {
       bubbles.clear();
       for (final word in wordsToDisplay) {
-        bubbles.add(_createWordBubble(word));
+        final bubble = _createWordBubble(word, occupied: occupied);
+        bubbles.add(bubble);
+        occupied.add(
+          Rect.fromLTWH(bubble.x, bubble.y, bubbleSize, bubbleSize)
+              .inflate(bubbleCollisionGap),
+        );
       }
     });
   }
@@ -312,20 +322,43 @@ class _WordBubblesGameState extends State<WordBubblesGame>
     return shuffled.take(count).toList();
   }
 
-  WordBubble _createWordBubble(TeachableWord word) {
+  WordBubble _createWordBubble(
+    TeachableWord word, {
+    required List<Rect> occupied,
+  }) {
     final mediaQuery = MediaQuery.of(context);
     final gameArea = Size(
       max(0.0, mediaQuery.size.width - mediaQuery.padding.horizontal - 38),
       max(0.0, mediaQuery.size.height - mediaQuery.padding.vertical - 38),
     );
-    final maxX = max(0.0, gameArea.width - bubbleSize);
-    final maxY = max(0.0, gameArea.height - bubbleSize);
-    final minY = min(100.0, maxY);
+    final scaledInset = bubbleSize * 0.05;
+    final maxX = max(0.0, gameArea.width - bubbleSize - scaledInset);
+    final maxY = max(
+      0.0,
+      gameArea.height - bubbleSize - bottomBubblePadding - scaledInset,
+    );
+    final minY = min(topBubblePadding, maxY);
+
+    for (var attempt = 0; attempt < 60; attempt++) {
+      final x = random.nextDouble() * maxX;
+      final y = minY + random.nextDouble() * max(0.0, maxY - minY);
+      final candidate = Rect.fromLTWH(x, y, bubbleSize, bubbleSize)
+          .inflate(bubbleCollisionGap);
+      if (occupied.every((rect) => !rect.overlaps(candidate))) {
+        return WordBubble(
+          word: word,
+          x: x,
+          y: y,
+          dx: (random.nextDouble() - 0.5) * animationSpeed,
+          dy: (random.nextDouble() - 0.5) * animationSpeed,
+        );
+      }
+    }
     
     return WordBubble(
       word: word,
-      x: random.nextDouble() * maxX,
-      y: minY + random.nextDouble() * (maxY - minY),
+      x: 0,
+      y: minY,
       dx: (random.nextDouble() - 0.5) * animationSpeed,
       dy: (random.nextDouble() - 0.5) * animationSpeed,
     );
@@ -352,6 +385,7 @@ class _WordBubblesGameState extends State<WordBubblesGame>
         await _speakQueuedWord(bubble);
       } catch (error, stackTrace) {
         debugPrint('Error speaking word: $error\n$stackTrace');
+        _announceSpeechUnavailable();
       }
     });
   }
@@ -362,11 +396,34 @@ class _WordBubblesGameState extends State<WordBubblesGame>
 
     try {
       await _setTtsSpeaking(true);
-      await flutterTts.speak(bubble.word.word);
+      try {
+        await flutterTts
+            .speak(bubble.word.word)
+            .timeout(const Duration(seconds: 8));
+      } on TimeoutException {
+        debugPrint('Text-to-speech timed out for ${bubble.word.word}');
+        _announceSpeechUnavailable();
+        try {
+          await flutterTts.stop();
+        } catch (error) {
+          debugPrint('Text-to-speech stop failed after timeout: $error');
+        }
+      }
     } finally {
       await _setTtsSpeaking(false);
       _handleWordCleanup(bubble);
     }
+  }
+
+  void _announceSpeechUnavailable() {
+    if (!mounted || _speechFailureAnnounced) return;
+    _speechFailureAnnounced = true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Speech is unavailable here, but the game can continue.'),
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
 
   void _handleWordCleanup(WordBubble bubble) {
@@ -435,10 +492,9 @@ class _WordBubblesGameState extends State<WordBubblesGame>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final compactLayout = size.width < 420 || size.height < 600;
     return Scaffold(
       body: Container(
-        width: size.width,
-        height: size.height,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -457,32 +513,26 @@ class _WordBubblesGameState extends State<WordBubblesGame>
                     Positioned.fill(
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 500),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return Image.asset(
-                              _currentImagePath!,
-                              key: ValueKey<String>(_currentImagePath!),
-                              width: size.width,
-                              height: size.height,
-                              fit: constraints.maxWidth > size.width || constraints.maxHeight > size.height
-                                  ? BoxFit.contain
-                                  : BoxFit.cover,
+                        child: SizedBox.expand(
+                          child: Image.asset(
+                            _currentImagePath!,
+                            key: ValueKey<String>(_currentImagePath!),
+                            fit: BoxFit.cover,
+                            alignment: Alignment.center,
+                            cacheWidth: (size.width * 1.5).round(),
+                            cacheHeight: (size.height * 1.5).round(),
+                            filterQuality: FilterQuality.medium,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                              color: const Color(0xFFFFB74D),
                               alignment: Alignment.center,
-                              cacheWidth: (size.width * 1.5).round(),
-                              cacheHeight: (size.height * 1.5).round(),
-                              filterQuality: FilterQuality.medium,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                color: const Color(0xFFFFB74D),
-                                alignment: Alignment.center,
-                                child: const Icon(
-                                  Icons.landscape,
-                                  size: 72,
-                                  color: Colors.white70,
-                                ),
+                              child: const Icon(
+                                Icons.landscape,
+                                size: 72,
+                                color: Colors.white70,
                               ),
-                            );
-                          },
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -492,7 +542,8 @@ class _WordBubblesGameState extends State<WordBubblesGame>
                     bubbles: bubbles,
                     onBubbleTap: _speakWord,
                     bubbleSize: bubbleSize,
-                    topPadding: 100,
+                    topPadding: topBubblePadding,
+                    bottomPadding: bottomBubblePadding,
                     showPhotoCards: _visualMode == BubbleVisualMode.photos,
                     accentColor: _frameAccentColor(
                       FrameStyle.values[_frameStyleIndex % FrameStyle.values.length],
@@ -501,23 +552,28 @@ class _WordBubblesGameState extends State<WordBubblesGame>
                   
                   // Title
                   Positioned(
-                    top: 20,
+                    top: compactLayout ? 12 : 20,
                     left: 0,
                     right: 0,
                     child: Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
+                        constraints: BoxConstraints(
+                          maxWidth: max(0.0, size.width - 32),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: compactLayout ? 10 : 20,
+                          vertical: compactLayout ? 8 : 10,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Text(
-                          'WordBubbles: Learn & Play',
-                          style: TextStyle(
-                            fontSize: 24,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'WordBubbles: Learn & Play',
+                            style: TextStyle(
+                            fontSize: compactLayout ? 20 : 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                             shadows: [
@@ -527,6 +583,7 @@ class _WordBubblesGameState extends State<WordBubblesGame>
                                 blurRadius: 4,
                               ),
                             ],
+                            ),
                           ),
                         ),
                       ),
@@ -534,7 +591,7 @@ class _WordBubblesGameState extends State<WordBubblesGame>
                   ),
                   // Round progress stays visible while bubbles remain in the play area.
                   Positioned(
-                    top: 80,
+                    top: compactLayout ? 60 : 80,
                     left: 0,
                     right: 0,
                     child: Center(

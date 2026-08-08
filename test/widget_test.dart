@@ -255,13 +255,72 @@ void main() {
     final layerFinder = find.byType(AnimatedBubblesLayer);
     final layer = tester.widget<AnimatedBubblesLayer>(layerFinder);
     final layerSize = tester.getSize(layerFinder);
-    final maxX = math.max(0.0, layerSize.width - layer.bubbleSize);
-    final maxY = math.max(0.0, layerSize.height - layer.bubbleSize);
+    final scaledInset = layer.bubbleSize * 0.05;
+    final maxX = math.max(0.0, layerSize.width - layer.bubbleSize - scaledInset);
+    final maxY = math.max(
+      0.0,
+      layerSize.height - layer.bubbleSize - layer.bottomPadding - scaledInset,
+    );
     final minY = math.min(layer.topPadding, maxY);
 
     for (final bubble in gameState.bubbles as List) {
       expect(bubble.x, inInclusiveRange(0.0, maxX));
       expect(bubble.y, inInclusiveRange(minY, maxY));
     }
+  });
+
+  testWidgets('Bubble layer reserves controls and exposes keyboard actions',
+      (WidgetTester tester) async {
+    final bubbles = [
+      WordBubble(
+        word: teachableWords.first,
+        x: 12,
+        y: 90,
+        dx: 0,
+        dy: 0,
+      ),
+      WordBubble(
+        word: teachableWords[1],
+        x: 12,
+        y: 90,
+        dx: 0,
+        dy: 0,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 500,
+          child: AnimatedBubblesLayer(
+            bubbles: bubbles,
+            onBubbleTap: (_) {},
+            bubbleSize: 120,
+            topPadding: 80,
+            bottomPadding: 72,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final layerFinder = find.byType(AnimatedBubblesLayer);
+    final layer = tester.widget<AnimatedBubblesLayer>(layerFinder);
+    final layerSize = tester.getSize(layerFinder);
+    final scaledInset = layer.bubbleSize * 0.05;
+    final maxY = math.max(
+      0.0,
+      layerSize.height - layer.bubbleSize - layer.bottomPadding - scaledInset,
+    );
+    final minY = math.min(layer.topPadding, maxY);
+
+    expect(bubbles.every((bubble) => bubble.y >= minY && bubble.y <= maxY), isTrue);
+    expect(find.byType(FocusableActionDetector), findsNWidgets(2));
+    expect(
+      find.bySemanticsLabel('${teachableWords.first.word}. Tap to hear the word.'),
+      findsOneWidget,
+    );
   });
 }

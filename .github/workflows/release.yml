@@ -7,7 +7,7 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 permissions:
-  contents: write  # Required for creating releases
+  contents: read
 
 jobs:
   test:
@@ -48,7 +48,7 @@ jobs:
         run: flutter pub get
 
       - name: Build web app
-        run: flutter build web --release
+        run: flutter build web --release --pwa-strategy=offline-first
 
       - name: Copy privacy policy to web build
         run: cp privacy-policy.html build/web/privacy-policy.html
@@ -146,6 +146,8 @@ jobs:
   create-release:
     needs: [build-web, build-android]
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -181,7 +183,10 @@ jobs:
             ## WordBubbles Release ${{ steps.get_version.outputs.version }}
             
             ### What's New
-            - Bug fixes and improvements
+            - Collision-aware animated bubbles with better compact-screen layout
+            - Emoji and photo-card visual modes with local fallback assets
+            - Background music controls and improved speech/accessibility recovery
+            - Web startup uses the bundled CanvasKit runtime for more reliable loading
             
             ### Downloads
             - **Web Version**: Download the web build and serve it with any web server

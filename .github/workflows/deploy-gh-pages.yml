@@ -87,7 +87,7 @@ jobs:
         run: flutter pub get
 
       - name: Build web app
-        run: flutter build web --release --base-href="/WordBubbles/" --output-dir="www"
+        run: flutter build web --release --pwa-strategy=offline-first --base-href="/WordBubbles/" --output-dir="www"
 
       - name: Copy privacy policy
         run: cp privacy-policy.html www/privacy-policy.html

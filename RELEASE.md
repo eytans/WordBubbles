@@ -60,6 +60,15 @@ You can manually trigger the workflow to test the build. A GitHub release is cre
    - Installation instructions for both platforms
    - The web ZIP, Android AAB, and Android APK attached as downloadable assets
 
+## Google Play Closed-testing gate
+
+After the signed AAB job is green, upload the AAB to the Closed testing track and verify:
+
+1. The version code is newer than the last submitted artifact.
+2. Target API level is 36 and the signed bundle passes Play Console checks.
+3. The tester list, release notes, pre-launch checks, and rollout state are correct.
+4. The Play Console policy and account-status banners have been reviewed before submitting.
+
 ## Release Assets
 
 Each release will include:
