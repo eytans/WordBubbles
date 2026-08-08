@@ -1,33 +1,30 @@
 # WordBubbles Release Guide
 
-This document explains how to create releases for the WordBubbles app that will automatically build and publish both web and Android APK versions.
+This document explains how to create releases for the WordBubbles app that build the web version and Android artifacts. The Android App Bundle (AAB) is the Play Console artifact; the APK is retained for direct testing.
 
 ## Automated Release Process
 
 The project now includes an automated release workflow that:
 - Runs tests to ensure code quality
 - Builds the web version as a ZIP file
-- Builds the Android APK
-- Creates a GitHub release with both files attached
+- Builds a signed Android App Bundle for Google Play Console
+- Builds a signed Android APK for direct testing
+- Creates a GitHub release with web, AAB, and APK files attached
 - Provides detailed installation instructions
 
 ## How to Create a Release
 
-### Method 1: Using the Release Script (Recommended)
+### Method 1: Using a version tag (Recommended)
 
 1. Make sure all your changes are committed and pushed to the main branch
-2. Run the release script:
+2. Update `pubspec.yaml`, commit, and push the version change.
+3. Create and push a version tag:
    ```bash
-   ./create-release.sh
+   git tag -a v1.1.0 -m "WordBubbles 1.1.0"
+   git push origin main
+   git push origin v1.1.0
    ```
-3. Follow the prompts to:
-   - Enter the new version number (e.g., 1.0.1, 1.1.0, 2.0.0)
-   - Optionally add release notes
-4. The script will:
-   - Update the version in `pubspec.yaml`
-   - Create a git commit with the version bump
-   - Create and push a version tag
-   - Trigger the GitHub Actions workflow
+4. GitHub Actions runs tests, builds the web archive, builds the signed AAB/APK, and creates the GitHub release.
 
 ### Method 2: Manual Tag Creation
 
@@ -51,17 +48,17 @@ The project now includes an automated release workflow that:
 
 ### Method 3: Manual Workflow Trigger
 
-You can also manually trigger the release workflow from the GitHub Actions tab without creating a tag. This is useful for testing the workflow.
+You can manually trigger the workflow to test the build. A GitHub release is created only for a `v*.*.*` tag, so a manual run from `main` will not create a release named `main`.
 
 ## What Happens During Release
 
 1. **Testing Phase**: The workflow runs `flutter analyze` and `flutter test` to ensure code quality
 2. **Web Build**: Creates a production web build and packages it as a ZIP file
-3. **Android Build**: Creates a release APK for Android devices
+3. **Android Build**: Creates a signed production AAB and APK. The workflow installs Android API 36 and verifies that the AAB is signed.
 4. **Release Creation**: Creates a GitHub release with:
    - Descriptive release notes
    - Installation instructions for both platforms
-   - Both the web ZIP and Android APK attached as downloadable assets
+   - The web ZIP, Android AAB, and Android APK attached as downloadable assets
 
 ## Release Assets
 
@@ -71,6 +68,10 @@ Each release will include:
 - Complete web application ready to serve
 - Can be deployed to any web server
 - Includes all necessary assets and files
+
+### Android App Bundle (`wordbubbles-vX.X.X.aab`)
+- Signed bundle to upload to Google Play Console testing or production tracks
+- Targets Android 16 (API level 36)
 
 ### Android APK (`wordbubbles-vX.X.X.apk`)
 - Release-signed APK for Android devices

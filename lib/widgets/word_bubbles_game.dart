@@ -44,9 +44,11 @@ class _WordBubblesGameState extends State<WordBubblesGame>
   bool _musicMuted = false;
   bool _isTtsSpeaking = false;
   bool _resumeMusicOnForeground = false;
+  bool _isDisposing = false;
   double _musicVolume = 0.35;
   int _frameStyleIndex = 0;
   BubbleVisualMode _visualMode = BubbleVisualMode.emoji;
+  Future<void> _speechQueue = Future<void>.value();
   
   static const int maxObjectsOnScreen = 3;
   static const double bubbleSize = 120.0;
@@ -103,7 +105,11 @@ class _WordBubblesGameState extends State<WordBubblesGame>
   }
 
   Future<void> _startBackgroundMusic() async {
-    if (!_audioAssetAvailable || _musicMuted || _musicStarted || !mounted) {
+    if (_isDisposing ||
+        !_audioAssetAvailable ||
+        _musicMuted ||
+        _musicStarted ||
+        !mounted) {
       return;
     }
 
@@ -119,7 +125,7 @@ class _WordBubblesGameState extends State<WordBubblesGame>
   }
 
   Future<void> _applyMusicVolume() async {
-    if (!_audioAssetAvailable) return;
+    if (_isDisposing || !_audioAssetAvailable) return;
 
     try {
       if (!_musicStarted && !_musicMuted) {
@@ -203,6 +209,7 @@ class _WordBubblesGameState extends State<WordBubblesGame>
   }
 
   Future<void> _setTtsSpeaking(bool speaking) async {
+    if (_isDisposing) return;
     _isTtsSpeaking = speaking;
     if (!_musicStarted) return;
 
@@ -324,8 +331,8 @@ class _WordBubblesGameState extends State<WordBubblesGame>
     );
   }
 
-  Future<void> _speakWord(WordBubble bubble) async {
-    if (!mounted || bubble.isClicked) return;
+  void _speakWord(WordBubble bubble) {
+    if (!mounted || _isDisposing || bubble.isClicked) return;
 
     setState(() {
       bubble.isClicked = true;
@@ -338,14 +345,24 @@ class _WordBubblesGameState extends State<WordBubblesGame>
 
     // Mark the bubble immediately so a slow first-time audio/TTS setup does
     // not make a tap feel unresponsive.
+    // Queue speech so rapid taps do not race the platform TTS engine or
+    // background-music ducking state.
+    _speechQueue = _speechQueue.then((_) async {
+      try {
+        await _speakQueuedWord(bubble);
+      } catch (error, stackTrace) {
+        debugPrint('Error speaking word: $error\n$stackTrace');
+      }
+    });
+  }
+
+  Future<void> _speakQueuedWord(WordBubble bubble) async {
     await Future.wait([_ttsInitialization, _audioInitialization]);
-    if (!mounted) return;
+    if (!mounted || _isDisposing) return;
 
     try {
       await _setTtsSpeaking(true);
       await flutterTts.speak(bubble.word.word);
-    } catch (e) {
-      debugPrint('Error speaking word: $e');
     } finally {
       await _setTtsSpeaking(false);
       _handleWordCleanup(bubble);
@@ -388,12 +405,31 @@ class _WordBubblesGameState extends State<WordBubblesGame>
 
   @override
   void dispose() {
+    _isDisposing = true;
     WidgetsBinding.instance.removeObserver(this);
     _nextRoundTimer?.cancel();
-    unawaited(flutterTts.stop());
-    unawaited(_bgmPlayer.stop());
-    unawaited(_bgmPlayer.dispose());
+    unawaited(_disposePlayback());
     super.dispose();
+  }
+
+  Future<void> _disposePlayback() async {
+    try {
+      await flutterTts.stop();
+    } catch (error) {
+      debugPrint('Text-to-speech cleanup failed: $error');
+    }
+
+    try {
+      await _bgmPlayer.stop();
+    } catch (error) {
+      debugPrint('Background music cleanup failed: $error');
+    }
+
+    try {
+      await _bgmPlayer.dispose();
+    } catch (error) {
+      debugPrint('Audio player cleanup failed: $error');
+    }
   }
 
   @override
@@ -435,6 +471,16 @@ class _WordBubblesGameState extends State<WordBubblesGame>
                               cacheWidth: (size.width * 1.5).round(),
                               cacheHeight: (size.height * 1.5).round(),
                               filterQuality: FilterQuality.medium,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                color: const Color(0xFFFFB74D),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.landscape,
+                                  size: 72,
+                                  color: Colors.white70,
+                                ),
+                              ),
                             );
                           },
                         ),

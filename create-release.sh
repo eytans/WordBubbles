@@ -7,7 +7,10 @@ set -e
 
 # Get current version from pubspec.yaml
 CURRENT_VERSION=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 1)
+CURRENT_BUILD=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2 | cut -d '+' -f 2)
+NEXT_BUILD=$((CURRENT_BUILD + 1))
 echo "Current version in pubspec.yaml: $CURRENT_VERSION"
+echo "Next Android version code: $NEXT_BUILD"
 
 # Ask for new version
 echo "Enter the new version (e.g., 1.0.1, 1.1.0, 2.0.0):"
@@ -25,7 +28,7 @@ read RELEASE_NOTES
 
 # Update version in pubspec.yaml
 echo "Updating version in pubspec.yaml..."
-sed -i "s/^version: .*/version: $NEW_VERSION+1/" pubspec.yaml
+perl -0pi -e "s/^version: .*$/version: $NEW_VERSION+$NEXT_BUILD/m" pubspec.yaml
 
 # Commit the version change
 git add pubspec.yaml

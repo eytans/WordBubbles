@@ -8,8 +8,6 @@ on:
 
 permissions:
   contents: write  # Required for creating releases
-  pages: write
-  id-token: write
 
 jobs:
   test:
@@ -67,7 +65,7 @@ jobs:
           name: web-build
           path: wordbubbles-web-${{ github.ref_name }}.zip
 
-  build-apk:
+  build-android:
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -80,6 +78,12 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36"
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -90,28 +94,58 @@ jobs:
         run: flutter pub get
 
       - name: Decode and setup keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          echo ${{ secrets.KEYSTORE_BASE64 }} | base64 --decode > android/keystore.jks
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-          echo "storeFile=keystore.jks" >> android/key.properties
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_PASSWORD"
+          test -n "$KEY_ALIAS"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/keystore.jks
+          {
+            printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+            printf 'keyAlias=%s\n' "$KEY_ALIAS"
+            printf 'storeFile=keystore.jks\n'
+          } > android/key.properties
 
-      - name: Build APK
+      - name: Build signed Android App Bundle
+        run: flutter build appbundle --release
+
+      - name: Rename Android App Bundle
+        run: |
+          mv build/app/outputs/bundle/release/app-release.aab wordbubbles-${{ github.ref_name }}.aab
+
+      - name: Upload Android App Bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: wordbubbles-${{ github.ref_name }}.aab
+          if-no-files-found: error
+
+      - name: Verify signed Android App Bundle
+        run: jarsigner -verify -verbose -certs wordbubbles-${{ github.ref_name }}.aab
+
+      - name: Build signed APK (optional convenience artifact)
         run: flutter build apk --release
 
-      - name: Rename APK
+      - name: Rename signed APK
         run: |
           mv build/app/outputs/flutter-apk/app-release.apk wordbubbles-${{ github.ref_name }}.apk
 
-      - name: Upload APK artifact
+      - name: Upload optional Android APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: apk-build
+          name: android-apk
           path: wordbubbles-${{ github.ref_name }}.apk
+          if-no-files-found: error
 
   create-release:
-    needs: [build-web, build-apk]
+    needs: [build-web, build-android]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -122,10 +156,15 @@ jobs:
         with:
           name: web-build
 
-      - name: Download APK build
+      - name: Download Android App Bundle
         uses: actions/download-artifact@v4
         with:
-          name: apk-build
+          name: android-aab
+
+      - name: Download optional Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-apk
 
       - name: Get version from pubspec.yaml
         id: get_version
@@ -146,7 +185,8 @@ jobs:
             
             ### Downloads
             - **Web Version**: Download the web build and serve it with any web server
-            - **Android APK**: Install directly on Android devices
+            - **Android App Bundle**: Upload to Google Play Console for testing or release
+            - **Android APK (optional)**: Install directly on Android devices
             
             ### Installation Instructions
             
@@ -156,7 +196,11 @@ jobs:
             3. Serve the files using any web server (e.g., `python3 -m http.server 8000`)
             4. Open your browser and navigate to the server address
             
-            #### Android APK
+            #### Android App Bundle
+            1. Download the AAB file
+            2. Upload it to the desired Google Play Console testing or release track
+
+            #### Android APK (optional)
             1. Download the APK file
             2. Enable "Install from unknown sources" in your Android settings
             3. Install the APK file
@@ -166,6 +210,7 @@ jobs:
             - **Android**: Android 5.0 (API level 21) or higher
           files: |
             wordbubbles-web-${{ github.ref_name }}.zip
+            wordbubbles-${{ github.ref_name }}.aab
             wordbubbles-${{ github.ref_name }}.apk
           draft: false
           prerelease: false

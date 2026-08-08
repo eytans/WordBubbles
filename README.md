@@ -38,6 +38,13 @@ This Flutter app is a rewrite of the original JavaScript/HTML WordBubbles game, 
 - **Smooth Animations**: 60fps animations with proper collision detection
 - **Responsive Design**: Adapts to different screen sizes
 
+## Android release readiness
+
+- Targets Android 16 (API 36), required for new Google Play app updates from August 31, 2026.
+- Uses version `1.1.0+2` as the next release candidate after the original `v1.0.0` tag.
+- The release workflow produces a signed Android App Bundle (`.aab`) for Play Console and an APK for direct testing.
+- GitHub Actions verifies an unsigned debug Android build on every main push; the signed release requires the repository keystore secrets.
+
 ## Getting Started
 
 ### Prerequisites
