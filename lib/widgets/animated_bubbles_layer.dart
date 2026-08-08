@@ -104,46 +104,98 @@ class _AnimatedBubblesLayerState extends State<AnimatedBubblesLayer> with Ticker
   }
 
   void _separateOverlappingBubbles(double maxX, double maxY, double minY) {
+    for (var pass = 0; pass < 4; pass++) {
+      var foundOverlap = false;
+      for (var firstIndex = 0;
+          firstIndex < widget.bubbles.length;
+          firstIndex++) {
+        final first = widget.bubbles[firstIndex];
+        if (first.isClicked) continue;
+
+        for (var secondIndex = firstIndex + 1;
+            secondIndex < widget.bubbles.length;
+            secondIndex++) {
+          final second = widget.bubbles[secondIndex];
+          if (second.isClicked) continue;
+
+          final dx = second.x - first.x;
+          final dy = second.y - first.y;
+          final overlapX = widget.bubbleSize - dx.abs();
+          final overlapY = widget.bubbleSize - dy.abs();
+          if (overlapX <= 0 || overlapY <= 0) continue;
+
+          foundOverlap = true;
+          final horizontal = overlapX < overlapY;
+          if (horizontal) {
+            final direction = dx == 0
+                ? (firstIndex.isEven ? -1.0 : 1.0)
+                : (dx < 0 ? -1.0 : 1.0);
+            final correction = (overlapX / 2) + 2;
+            first.x -= direction * correction;
+            second.x += direction * correction;
+            first.dx = -first.dx;
+            second.dx = -second.dx;
+          } else {
+            final direction = dy == 0
+                ? (firstIndex.isEven ? -1.0 : 1.0)
+                : (dy < 0 ? -1.0 : 1.0);
+            final correction = (overlapY / 2) + 2;
+            first.y -= direction * correction;
+            second.y += direction * correction;
+            first.dy = -first.dy;
+            second.dy = -second.dy;
+          }
+
+          first.x = first.x.clamp(0.0, maxX).toDouble();
+          second.x = second.x.clamp(0.0, maxX).toDouble();
+          first.y = first.y.clamp(minY, maxY).toDouble();
+          second.y = second.y.clamp(minY, maxY).toDouble();
+        }
+      }
+
+      if (!foundOverlap) return;
+    }
+
+    if (_hasOverlappingBubbles()) {
+      _reflowBubblesToGrid(maxX, maxY, minY);
+    }
+  }
+
+  bool _hasOverlappingBubbles() {
     for (var firstIndex = 0;
         firstIndex < widget.bubbles.length;
         firstIndex++) {
       final first = widget.bubbles[firstIndex];
       if (first.isClicked) continue;
-
       for (var secondIndex = firstIndex + 1;
           secondIndex < widget.bubbles.length;
           secondIndex++) {
         final second = widget.bubbles[secondIndex];
         if (second.isClicked) continue;
-
-        final dx = second.x - first.x;
-        final dy = second.y - first.y;
-        final overlapX = widget.bubbleSize - dx.abs();
-        final overlapY = widget.bubbleSize - dy.abs();
-        if (overlapX <= 0 || overlapY <= 0) continue;
-
-        final horizontal = overlapX < overlapY;
-        if (horizontal) {
-          final direction = dx == 0
-              ? (firstIndex.isEven ? -1.0 : 1.0)
-              : (dx < 0 ? -1.0 : 1.0);
-          final correction = (overlapX / 2) + 1;
-          first.x -= direction * correction;
-          second.x += direction * correction;
-        } else {
-          final direction = dy == 0
-              ? (firstIndex.isEven ? -1.0 : 1.0)
-              : (dy < 0 ? -1.0 : 1.0);
-          final correction = (overlapY / 2) + 1;
-          first.y -= direction * correction;
-          second.y += direction * correction;
+        if ((second.x - first.x).abs() < widget.bubbleSize &&
+            (second.y - first.y).abs() < widget.bubbleSize) {
+          return true;
         }
-
-        first.x = first.x.clamp(0.0, maxX).toDouble();
-        second.x = second.x.clamp(0.0, maxX).toDouble();
-        first.y = first.y.clamp(minY, maxY).toDouble();
-        second.y = second.y.clamp(minY, maxY).toDouble();
       }
+    }
+    return false;
+  }
+
+  void _reflowBubblesToGrid(double maxX, double maxY, double minY) {
+    const gap = 8.0;
+    final columns = math.max(
+      1,
+      ((maxX + gap) / (widget.bubbleSize + gap)).floor() + 1,
+    ).toInt();
+    final step = widget.bubbleSize + gap;
+
+    for (var index = 0; index < widget.bubbles.length; index++) {
+      final bubble = widget.bubbles[index];
+      if (bubble.isClicked) continue;
+      final column = index % columns;
+      final row = index ~/ columns;
+      bubble.x = math.min(maxX, column * step);
+      bubble.y = math.min(maxY, minY + row * step);
     }
   }
 
